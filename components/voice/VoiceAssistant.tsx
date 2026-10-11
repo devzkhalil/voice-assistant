@@ -133,9 +133,9 @@ export default function VoiceAssistant() {
               {live.messages.length === 0 && (
                 <div className="mt-6 text-center text-zinc-400">
                   <Sparkles className="mx-auto mb-3 size-6 text-accent" />
-                  <p>Talk or type to ask about my projects, skills, experience or availability.</p>
+                  <p>কথা বলুন বা লিখুন — প্রজেক্ট, স্কিল, অভিজ্ঞতা বা যোগাযোগ নিয়ে জানতে পারেন।</p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    {["What are your main skills?", "Tell me about a recent project", "Are you available for hire?"].map((q) => (
+                    {["খলিলের মূল স্কিলগুলো কী?", "উনি এখন কোথায় কাজ করেন?", "ওনার সাথে কীভাবে যোগাযোগ করব?"].map((q) => (
                       <button key={q} onClick={() => { setShowCaptions(true); void live.sendText(q); }} className="rounded-full border border-white/10 px-3 py-1 text-xs hover:border-accent hover:text-white">
                         {q}
                       </button>

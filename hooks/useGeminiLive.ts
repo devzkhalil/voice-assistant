@@ -1,6 +1,6 @@
 "use client";
 
-import { GoogleGenAI, type LiveServerMessage, type Session } from "@google/genai";
+import { EndSensitivity, GoogleGenAI, StartSensitivity, type LiveServerMessage, type Session } from "@google/genai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioPlayer } from "@/lib/audio/AudioPlayer";
 import { AudioRecorder } from "@/lib/audio/AudioRecorder";
@@ -23,6 +23,11 @@ interface Options {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+// Debug timeline: every log line shows ms since the page-level t0 so gaps are easy to read in the console.
+const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+const tlog = (label: string, extra?: unknown) =>
+  console.log(`[latency +${Math.round(performance.now() - t0)}ms] ${label}`, extra ?? "");
 
 /**
  * Owns the full Gemini Live lifecycle:
@@ -50,6 +55,7 @@ export function useGeminiLive() {
   // Latency meter: last moment the user was audibly speaking, and whether we're waiting for reply audio.
   const lastSpeechAt = useRef(0);
   const awaitingReply = useRef(false);
+  const speaking = useRef(false);
 
   /** Append streaming transcription text to the active bubble for `role`, creating it if needed. */
   const appendText = useCallback((role: ChatMessage["role"], text: string) => {
@@ -76,13 +82,21 @@ export function useGeminiLive() {
       const content = msg.serverContent;
       if (!content) return;
 
+      if (content.inputTranscription?.text) tlog("server: user transcript", content.inputTranscription.text);
+      if (content.outputTranscription?.text) tlog("server: assistant transcript", content.outputTranscription.text);
+      if (content.generationComplete) tlog("server: generationComplete");
+      if (content.turnComplete) tlog("server: turnComplete");
+      if (content.interrupted) tlog("server: interrupted");
+
       // 1) Audio chunks -> speaker queue (played as they arrive).
       for (const part of content.modelTurn?.parts ?? []) {
         const data = part.inlineData?.data;
         if (data && part.inlineData?.mimeType?.startsWith("audio/")) {
           if (awaitingReply.current) {
             awaitingReply.current = false;
-            setLatencyMs(Math.round(performance.now() - lastSpeechAt.current));
+            const ms = Math.round(performance.now() - lastSpeechAt.current);
+            tlog(`server: FIRST AUDIO (${ms}ms after last loud mic chunk)`);
+            setLatencyMs(ms);
           }
           playerRef.current?.enqueue(base64ToArrayBuffer(data));
         }
@@ -129,9 +143,14 @@ export function useGeminiLive() {
     if (recorderRef.current || !sessionRef.current) return;
     const recorder = new AudioRecorder((pcm, level) => {
       setUserLevel(level);
-      if (level > 0.08) {
+      if (level > 0.02) {
+        if (!speaking.current) tlog("mic: speech start", level.toFixed(2));
+        speaking.current = true;
         lastSpeechAt.current = performance.now();
         awaitingReply.current = true;
+      } else if (speaking.current && performance.now() - lastSpeechAt.current > 300) {
+        speaking.current = false;
+        tlog("mic: speech end (300ms quiet)");
       }
       sessionRef.current?.sendRealtimeInput({
         audio: { data: arrayBufferToBase64(pcm), mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}` },
@@ -172,16 +191,29 @@ export function useGeminiLive() {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error ?? `Token request failed (${res.status})`);
         }
-        const { token, model } = (await res.json()) as LiveTokenResponse;
+        const { token, model, silenceMs } = (await res.json()) as LiveTokenResponse;
 
         // 2) Open the Live WebSocket straight to Google with the ephemeral token.
         //    Config (system prompt, voice, transcription) is locked into the token server-side.
         const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: "v1alpha" } });
         const session = await ai.live.connect({
           model,
-          config: {},
+          // Same turn-detection settings as the token: if Google ignores the token-locked copy, this one applies.
+          config: {
+            realtimeInputConfig: {
+              automaticActivityDetection: {
+                startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+                endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
+                prefixPaddingMs: 20,
+                silenceDurationMs: silenceMs,
+              },
+            },
+          },
           callbacks: {
-            onopen: () => setStatus("connected"),
+            onopen: () => {
+              tlog("ws: open");
+              setStatus("connected");
+            },
             onmessage: handleMessage,
             onerror: (e) => {
               console.error("[gemini-live] error", e);
@@ -204,8 +236,9 @@ export function useGeminiLive() {
         if (withMic) await startMic();
 
         // 4) Nudge the model to greet the visitor.
+        tlog("client: greeting sent");
         session.sendClientContent({
-          turns: [{ role: "user", parts: [{ text: "(A visitor just opened the assistant. Greet them.)" }] }],
+          turns: [{ role: "user", parts: [{ text: "(A visitor just opened the assistant. Greet them in Bangla.)" }] }],
           turnComplete: true,
         });
       } catch (e) {

@@ -61,7 +61,7 @@ app/
   api/gemini/token/route.ts   # mints locked ephemeral tokens (API key stays here)
   layout.tsx, page.tsx, globals.css
 components/
-  sections/                   # Hero, About, Skills, Projects, Experience, Contact
+  layout/ home/ pages/        # v3 chrome (notched header), Overview widgets, Device/Colleague views
   voice/VoiceAssistant.tsx    # floating orb + panel, captions, mute, text input
   voice/AudioVisualizer.tsx   # Framer Motion bars driven by AnalyserNode / mic RMS
 data/portfolioData.ts         # ★ knowledge base + page content (edit this)
@@ -109,13 +109,13 @@ npm run dev                       # http://localhost:3000
    ```env
    GEMINI_API_KEY=AIza...
    # optional
-   GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-09-2025
+   GEMINI_LIVE_MODEL=gemini-3.1-flash-live-preview
    GEMINI_VOICE=Puck
    ```
 3. Edit `data/portfolioData.ts` with your details.
 
 > **About the model:** `gemini-2.0-flash-exp` (and later `gemini-2.0-flash-live-001`) have been
-> retired from the Live API. The default here is the free-tier 2.5 Flash native-audio Live model.
+> retired from the Live API. The default here is `gemini-3.1-flash-live-preview`, which measured ~0.9 s from end of speech to first audio in `scripts/latency-bench.mjs` (the 2.5 native-audio models took 3-4.5 s).
 > If Google renames it, set `GEMINI_LIVE_MODEL` to any model listed as supporting the Live API in
 > AI Studio. No code changes are needed.
 

@@ -1,27 +1,165 @@
 @import "tailwindcss";
 
+/* Design tokens ported from the v3 site (GitHub-dark palette + Next.js-style dialog frame). */
 @theme {
-  --color-accent: #7c5cff;
-  --color-accent-2: #22d3ee;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-bgDefault: #0d1117;
+  --color-bgMuted: #161b22;
+  --color-bgInset: #010409;
+  --color-textDefault: #d1d5db;
+  --color-textMuted: #8d96a0;
+  --color-borderDefault: #30363d;
+  --color-borderMuted: #30363db3;
+  --color-borderEmphasis: #484f58;
+  --color-borderActive: #f78166;
+  --color-accent: #58a6ff;
+  --color-accent-2: #3fb950;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+:root {
+  --frame-bg: #0a0a0a;
+  --frame-stroke: #2e2e2e;
 }
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-black font-mono text-textDefault antialiased;
 }
 
-.section {
-  @apply mx-auto max-w-5xl px-6 py-24;
+.avatar {
+  box-shadow: 0 0 0 1px #ffffff26;
+  display: inline-block;
+  flex-shrink: 0;
+  line-height: 1;
+  overflow: hidden;
+  vertical-align: middle;
 }
 
-.section-title {
-  @apply mb-10 text-3xl font-bold tracking-tight sm:text-4xl;
+/* ---------- Dialog frame: notched tabs on top of a bordered panel ---------- */
+.frame-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
-.card {
-  @apply rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur;
+.notch {
+  translate: -1px;
+  height: 42px;
+  padding: 12px;
+  background: var(--frame-bg);
+  border: 1px solid var(--frame-stroke);
+  border-bottom: none;
+  position: relative;
 }
+.notch[data-side="left"] {
+  padding-right: 0;
+  border-radius: 1px 1px 0 0;
+  border-left: 2px solid var(--frame-stroke);
+}
+.notch[data-side="left"] > :not(.notch-tail) {
+  margin-right: -10px;
+}
+.notch[data-side="left"] .notch-tail {
+  right: -54px;
+}
+.notch[data-side="right"] {
+  padding-left: 0;
+}
+.notch[data-side="right"] > :not(.notch-tail) {
+  margin-left: -12px;
+}
+.notch[data-side="right"] .notch-tail {
+  left: -54px;
+  transform: rotateY(180deg);
+}
+.notch-tail {
+  position: absolute;
+  top: -1px;
+  width: 60px;
+  height: calc(100% + 1px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.frame-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--frame-bg);
+  background-clip: padding-box;
+  border: 1px solid var(--frame-stroke);
+  position: relative;
+  margin-top: -4px;
+  z-index: 10;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  padding: 6px 8px 6px 10px;
+  background: var(--frame-bg);
+  border: 1px solid #ffffff1f;
+  border-radius: 9999px;
+  color: #a1a1a1;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  transition: background 0.15s;
+}
+.pill:hover {
+  background: #1f1f1f;
+}
+
+@media (max-width: 600px) {
+  .frame-nav {
+    background: var(--frame-bg);
+    border: 1px solid var(--frame-stroke);
+    border-bottom: none;
+    overflow: hidden;
+  }
+  .notch {
+    border: 0 !important;
+    border-radius: 0 !important;
+    translate: 0;
+  }
+  .notch-tail {
+    display: none;
+  }
+}
+
+/* Thin scrollbars, matching v3 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Contribution graph cells (GitHub green ramp) */
+.contrib-0 { background: #161b22; }
+.contrib-1 { background: #0e4429; }
+.contrib-2 { background: #006d32; }
+.contrib-3 { background: #26a641; }
+.contrib-4 { background: #39d353; }

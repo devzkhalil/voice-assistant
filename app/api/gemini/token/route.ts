@@ -47,6 +47,7 @@ export async function POST(req: Request) {
 
   const model = process.env.GEMINI_LIVE_MODEL || DEFAULT_LIVE_MODEL;
   const voiceName = process.env.GEMINI_VOICE || DEFAULT_VOICE;
+  const silenceMs = Number(process.env.GEMINI_SILENCE_MS) || 300;
 
   try {
     // Ephemeral tokens are only available on v1alpha.
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
                 startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
                 endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
                 prefixPaddingMs: 20,
-                silenceDurationMs: Number(process.env.GEMINI_SILENCE_MS) || 300,
+                silenceDurationMs: silenceMs,
               },
             },
           },
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
 
     if (!token.name) throw new Error("Token response had no name");
 
-    const body: LiveTokenResponse = { token: token.name, model, expiresAt: expireTime };
+    const body: LiveTokenResponse = { token: token.name, model, expiresAt: expireTime, silenceMs };
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("[gemini/token] failed to mint token", err);
