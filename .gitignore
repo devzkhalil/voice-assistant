@@ -7,3 +7,9 @@ next-env.d.ts
 *.tsbuildinfo
 .vercel
 voice-samples/
+
+# OpenNext / Cloudflare
+.open-next
+.wrangler
+.dev.vars
+cloudflare-env.d.ts
