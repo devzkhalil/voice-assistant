@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Keyboard, Mic, MicOff, PhoneOff, Send, Sparkles, X } from "lucide-react";
+import { Captions, CaptionsOff, Keyboard, Mic, MicOff, PhoneOff, Send, Sparkles, X, Zap } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { portfolioData } from "@/data/portfolioData";
@@ -16,6 +16,8 @@ export default function VoiceAssistant() {
   const live = useGeminiLive();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  // Voice-first: during a voice call show the live orb, not a chat log. Captions are opt-in.
+  const [showCaptions, setShowCaptions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const connected = live.status === "connected";
@@ -44,8 +46,11 @@ export default function VoiceAssistant() {
     else if (!live.micActive) void live.startMic();
   };
 
+  const voiceView = connected && live.micActive && !showCaptions;
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setShowCaptions(true);
     void live.sendText(draft);
     setDraft("");
   };
@@ -79,14 +84,51 @@ export default function VoiceAssistant() {
                     } ${mode === "listening" || mode === "speaking" ? "animate-pulse" : ""}`}
                   />
                   {statusLabel}
+                  {live.latencyMs !== null && (
+                    <span className="ml-1 flex items-center gap-0.5 text-zinc-500" title="Time from end of speech to first reply audio">
+                      <Zap className="size-3" />
+                      {live.latencyMs} ms
+                    </span>
+                  )}
                 </p>
               </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowCaptions((v) => !v)}
+                  className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  aria-label={showCaptions ? "Hide captions" : "Show captions"}
+                  aria-pressed={showCaptions}
+                >
+                  {showCaptions ? <CaptionsOff className="size-4" /> : <Captions className="size-4" />}
+                </button>
               <button onClick={close} className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white" aria-label="Close assistant">
                 <X className="size-4" />
               </button>
+              </div>
             </header>
 
-            {/* Captions / chat */}
+            {voiceView ? (
+              /* Live call view: a big reactive orb, like a phone call — no text to wait for. */
+              <div className="flex flex-1 flex-col items-center justify-center gap-6">
+                <motion.div
+                  className="grid size-36 place-items-center rounded-full bg-gradient-to-br from-accent/30 to-accent-2/30"
+                  animate={{
+                    scale: mode === "speaking" ? [1, 1.08, 1] : 1 + live.userLevel * 0.25,
+                  }}
+                  transition={mode === "speaking" ? { repeat: Infinity, duration: 0.8 } : { type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <div className="grid size-24 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-2 shadow-lg shadow-accent/40">
+                    <AudioVisualizer analyser={live.analyser} userLevel={live.userLevel} mode={mode} bars={5} />
+                  </div>
+                </motion.div>
+                <p className="px-6 text-center text-sm text-zinc-400">
+                  {mode === "speaking" ? "Speak anytime to interrupt." : "Just talk — I'm listening."}
+                </p>
+                {live.error && <p className="mx-5 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">{live.error}</p>}
+              </div>
+            ) : (
+
+
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-4 text-sm">
               {live.messages.length === 0 && (
                 <div className="mt-6 text-center text-zinc-400">
@@ -94,7 +136,7 @@ export default function VoiceAssistant() {
                   <p>Talk or type to ask about my projects, skills, experience or availability.</p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
                     {["What are your main skills?", "Tell me about a recent project", "Are you available for hire?"].map((q) => (
-                      <button key={q} onClick={() => void live.sendText(q)} className="rounded-full border border-white/10 px-3 py-1 text-xs hover:border-accent hover:text-white">
+                      <button key={q} onClick={() => { setShowCaptions(true); void live.sendText(q); }} className="rounded-full border border-white/10 px-3 py-1 text-xs hover:border-accent hover:text-white">
                         {q}
                       </button>
                     ))}
@@ -115,6 +157,7 @@ export default function VoiceAssistant() {
               ))}
               {live.error && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">{live.error}</p>}
             </div>
+            )}
 
             {/* Voice controls */}
             <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-3">

@@ -39,10 +39,13 @@ can't be abused to run other prompts on your quota.
 
 **Where the latency goes:**
 - 32 ms capture chunks — no "record then send"; audio streams continuously.
-- Server-side voice-activity detection decides when you've finished speaking; no client round-trip.
+- Server-side voice-activity detection is tuned aggressive (high sensitivity, 300 ms silence, `GEMINI_SILENCE_MS`), so a reply starts right after you stop talking.
+- Thinking is disabled (`thinkingBudget: 0`). Native-audio models otherwise pause to "think" before every reply.
 - Native-audio model: speech-in → speech-out without a separate STT/TTS stage.
 - Playback starts on the first ~40 ms chunk; chunks are scheduled back-to-back on the audio clock.
 - Barge-in: when Gemini sends `interrupted`, all queued buffers are stopped immediately.
+- The panel header shows the measured latency (⚡ ms from end of speech to first reply audio).
+- During a call the panel shows a live orb, not a chat log. Captions are opt-in (CC button).
 - Echo cancellation on the mic so the assistant doesn't hear (and interrupt) itself.
 
 **Text fallback:** typed messages are sent with `sendClientContent` on the *same* Live session.

@@ -38,6 +38,8 @@ export function useGeminiLive() {
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const [userLevel, setUserLevel] = useState(0);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  /** Time from the end of the user's speech (or a sent text) to the first reply audio. */
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
 
   const sessionRef = useRef<Session | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -45,6 +47,9 @@ export function useGeminiLive() {
   // Ids of the in-progress messages so streamed transcript fragments append to the right bubble.
   const currentUserMsg = useRef<string | null>(null);
   const currentAssistantMsg = useRef<string | null>(null);
+  // Latency meter: last moment the user was audibly speaking, and whether we're waiting for reply audio.
+  const lastSpeechAt = useRef(0);
+  const awaitingReply = useRef(false);
 
   /** Append streaming transcription text to the active bubble for `role`, creating it if needed. */
   const appendText = useCallback((role: ChatMessage["role"], text: string) => {
@@ -75,6 +80,10 @@ export function useGeminiLive() {
       for (const part of content.modelTurn?.parts ?? []) {
         const data = part.inlineData?.data;
         if (data && part.inlineData?.mimeType?.startsWith("audio/")) {
+          if (awaitingReply.current) {
+            awaitingReply.current = false;
+            setLatencyMs(Math.round(performance.now() - lastSpeechAt.current));
+          }
           playerRef.current?.enqueue(base64ToArrayBuffer(data));
         }
       }
@@ -120,6 +129,10 @@ export function useGeminiLive() {
     if (recorderRef.current || !sessionRef.current) return;
     const recorder = new AudioRecorder((pcm, level) => {
       setUserLevel(level);
+      if (level > 0.08) {
+        lastSpeechAt.current = performance.now();
+        awaitingReply.current = true;
+      }
       sessionRef.current?.sendRealtimeInput({
         audio: { data: arrayBufferToBase64(pcm), mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}` },
       });
@@ -216,6 +229,8 @@ export function useGeminiLive() {
       playerRef.current?.interrupt();
       finalize("assistant");
       setMessages((m) => [...m, { id: uid(), role: "user", text: trimmed, final: true }]);
+      lastSpeechAt.current = performance.now();
+      awaitingReply.current = true;
       sessionRef.current.sendClientContent({
         turns: [{ role: "user", parts: [{ text: trimmed }] }],
         turnComplete: true,
@@ -244,6 +259,7 @@ export function useGeminiLive() {
     isAssistantSpeaking,
     userLevel,
     analyser,
+    latencyMs,
     connect,
     disconnect,
     startMic,

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { EndSensitivity, GoogleGenAI, Modality, StartSensitivity } from "@google/genai";
 import { NextResponse } from "next/server";
 import { buildSystemInstruction } from "@/lib/systemPrompt";
 import { DEFAULT_LIVE_MODEL, DEFAULT_VOICE, type LiveTokenResponse } from "@/lib/geminiConfig";
@@ -70,6 +70,19 @@ export async function POST(req: Request) {
             inputAudioTranscription: {},
             outputAudioTranscription: {},
             temperature: 0.6,
+            // Latency: native-audio models "think" before speaking by default,
+            // which adds a noticeable pause. A portfolio Q&A doesn't need it.
+            thinkingConfig: { thinkingBudget: 0 },
+            // Latency: end the user's turn quickly. The default VAD waits for a
+            // long silence before the model starts replying.
+            realtimeInputConfig: {
+              automaticActivityDetection: {
+                startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+                endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
+                prefixPaddingMs: 20,
+                silenceDurationMs: Number(process.env.GEMINI_SILENCE_MS) || 300,
+              },
+            },
           },
         },
         lockAdditionalFields: [],
